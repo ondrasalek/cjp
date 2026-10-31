@@ -2,6 +2,7 @@ import { useId, useRef } from "react";
 import { ArrowDown, Volume2 } from "lucide-react";
 import type { ExampleSentence, LexemeDetail, Relation } from "../types";
 import { ConjugationTable, DeclensionTable } from "./GrammarTables";
+import { isPlainLeftClick, wordHref } from "../seo";
 
 const GENDER_LABELS: Record<string, string> = {
   m: "rod mužský",
@@ -112,11 +113,16 @@ function RelationPills({
       </h3>
       <div className="pill-cloud gap-1.5">
         {unique.slice(0, 28).map((rel) => (
-          <button
+          <a
             key={rel.word}
-            type="button"
-            onClick={() => onSelectWord(rel.word)}
-            className="min-h-8.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-start text-[0.83rem] font-medium text-slate-800 transition hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300 cursor-pointer"
+            href={wordHref(rel.word)}
+            onClick={(e) => {
+              if (isPlainLeftClick(e)) {
+                e.preventDefault();
+                onSelectWord(rel.word);
+              }
+            }}
+            className="inline-flex min-h-8.5 items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-start text-[0.83rem] font-medium text-slate-800 no-underline transition hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-blue-400 dark:hover:text-blue-300"
           >
             {rel.word}
             {rel.qualifier && (
@@ -124,7 +130,7 @@ function RelationPills({
                 ({rel.qualifier})
               </span>
             )}
-          </button>
+          </a>
         ))}
       </div>
     </section>
@@ -301,13 +307,18 @@ export function LexemeCard({
               {entry.base_lemma && (
                 <p className="flex flex-wrap items-center gap-1.5">
                   <span>Odvozeno ze základního slova:</span>
-                  <button
-                    type="button"
-                    onClick={() => onSelectWord(entry.base_lemma!)}
-                    className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[0.84rem] font-semibold text-blue-800 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-300 cursor-pointer"
+                  <a
+                    href={wordHref(entry.base_lemma)}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e)) {
+                        e.preventDefault();
+                        onSelectWord(entry.base_lemma!);
+                      }
+                    }}
+                    className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[0.84rem] font-semibold text-blue-800 no-underline transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-300"
                   >
                     {entry.base_lemma} →
-                  </button>
+                  </a>
                 </p>
               )}
             </div>
@@ -400,13 +411,18 @@ export function LexemeCard({
                   {entry.translations_from_lemma && (
                     <span className="inline-flex flex-wrap items-center gap-1.5 text-[0.8rem] text-slate-500 dark:text-slate-400">
                       <span>ze základního slova</span>
-                      <button
-                        type="button"
-                        onClick={() => onSelectWord(entry.translations_from_lemma!)}
-                        className="inline-flex min-h-7 items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-800 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-300 cursor-pointer"
+                      <a
+                        href={wordHref(entry.translations_from_lemma)}
+                        onClick={(e) => {
+                          if (isPlainLeftClick(e)) {
+                            e.preventDefault();
+                            onSelectWord(entry.translations_from_lemma!);
+                          }
+                        }}
+                        className="inline-flex min-h-7 items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-800 no-underline transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/70 dark:text-blue-300"
                       >
                         {entry.translations_from_lemma} →
-                      </button>
+                      </a>
                     </span>
                   )}
                 </div>

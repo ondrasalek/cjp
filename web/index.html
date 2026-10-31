@@ -9,9 +9,44 @@
       document.querySelector('meta[name="color-scheme"]').content = localStorage.getItem("color-scheme") ?? "light dark";
     } catch {}
   </script>
-  <title>Český slovník a mluvnice | CJP</title>
-  <meta name="description" content="Otevřená databáze českých slov: skloňování, časování, dělení na slabiky, významy, synonyma a překlady.">
+  <title>Český slovník a slovotvary – české slovo, tvar slova, skloňování a časování</title>
+  <meta name="description" content="Otevřený český slovník a tvaroslovná databáze (~300 000 hesel a téměř 1 milion slovotvarů): ověřte jakékoliv české slovo, tvar slova, skloňování v 1.–7. pádu, časování sloves, stupňování, dělení na slabiky, významy, synonyma a překlady.">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+  <link rel="canonical" href="/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:site_name" content="Český slovník a slovotvary">
+  <meta property="og:title" content="Český slovník a slovotvary – české slovo, tvar slova, skloňování a časování">
+  <meta property="og:description" content="Otevřený český slovník a tvaroslovná databáze: skloňování, časování, stupňování, slovotvary, dělení na slabiky, významy, synonyma a překlady českých slov.">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Český slovník a slovotvary – české slovo, tvar slova, skloňování">
+  <meta name="twitter:description" content="Ověřte jakékoliv české slovo, tvar slova (slovotvary), skloňování, časování, dělení na slabiky, synonyma a překlady.">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script id="seo-jsonld" type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Český slovník a slovotvary",
+          "alternateName": ["CJP Český slovník", "Tvar slova a slovotvary česky"],
+          "inLanguage": "cs",
+          "url": "/",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "/slovo/{search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "DefinedTermSet",
+          "name": "Česká slovníková a tvaroslovná databáze",
+          "description": "Otevřená databáze českých slov, slovotvarů, skloňování, časování, stupňování, dělení na slabiky, významů, synonym a překladů.",
+          "inLanguage": "cs"
+        }
+      ]
+    }
+  </script>
 </head>
 <body>
   <div id="root"></div>

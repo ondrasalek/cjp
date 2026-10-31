@@ -228,4 +228,45 @@ func TestRateLimitAndQueryCaps(t *testing.T) {
 	if recHealth.Code != http.StatusOK {
 		t.Fatalf("/healthz should never be rate-limited, got %d", recHealth.Code)
 	}
+
+	// 5. SEO endpoints (/robots.txt, /sitemap.xml, /sitemaps/words-1.xml)
+	reqRobots := httptest.NewRequest(http.MethodGet, "/robots.txt", nil)
+	reqRobots.Host = "slovnik.example.cz"
+	reqRobots.Header.Set("X-Forwarded-Proto", "https")
+	recRobots := httptest.NewRecorder()
+	h.ServeHTTP(recRobots, reqRobots)
+	if recRobots.Code != http.StatusOK || !bytesContains(recRobots.Body.Bytes(), "Sitemap: https://slovnik.example.cz/sitemap.xml") {
+		t.Fatalf("unexpected /robots.txt response (%d): %s", recRobots.Code, recRobots.Body.String())
+	}
+
+	reqIdx := httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil)
+	reqIdx.Host = "slovnik.example.cz"
+	reqIdx.Header.Set("X-Forwarded-Proto", "https")
+	recIdx := httptest.NewRecorder()
+	h.ServeHTTP(recIdx, reqIdx)
+	if recIdx.Code != http.StatusOK || !bytesContains(recIdx.Body.Bytes(), "https://slovnik.example.cz/sitemaps/words-1.xml") {
+		t.Fatalf("unexpected /sitemap.xml response (%d)", recIdx.Code)
+	}
+
+	reqChunk := httptest.NewRequest(http.MethodGet, "/sitemaps/words-1.xml", nil)
+	reqChunk.Host = "slovnik.example.cz"
+	reqChunk.Header.Set("X-Forwarded-Proto", "https")
+	recChunk := httptest.NewRecorder()
+	h.ServeHTTP(recChunk, reqChunk)
+	if recChunk.Code != http.StatusOK || !bytesContains(recChunk.Body.Bytes(), "https://slovnik.example.cz/slovo/") {
+		t.Fatalf("unexpected /sitemaps/words-1.xml response (%d)", recChunk.Code)
+	}
+}
+
+func bytesContains(b []byte, sub string) bool {
+	return len(b) >= len(sub) && string(b) != "" && (len(sub) == 0 || indexOf(string(b), sub) >= 0)
+}
+
+func indexOf(s, sub string) int {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return i
+		}
+	}
+	return -1
 }

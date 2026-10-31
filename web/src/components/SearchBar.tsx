@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { AutocompleteItem } from "../types";
+import { isPlainLeftClick, wordHref } from "../seo";
 
 interface SearchBarProps {
   query: string;
@@ -245,14 +246,19 @@ export function SearchBar({ query, onSelectWord, langFilter }: SearchBarProps) {
           Ukázky:
         </span>
         {QUICK_EXAMPLES.map((ex) => (
-          <button
+          <a
             key={ex.word}
-            type="button"
-            onClick={() => submitWord(ex.word)}
-            className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[0.8rem] font-medium text-slate-700 transition hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300 cursor-pointer"
+            href={wordHref(ex.word)}
+            onClick={(e) => {
+              if (isPlainLeftClick(e)) {
+                e.preventDefault();
+                submitWord(ex.word);
+              }
+            }}
+            className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[0.8rem] font-medium text-slate-700 no-underline transition hover:border-blue-600 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300"
           >
             {ex.label}
-          </button>
+          </a>
         ))}
       </div>
     </search>

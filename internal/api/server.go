@@ -25,14 +25,15 @@ const (
 
 // Server serves the Czech Lexical REST API and optional SPA frontend.
 type Server struct {
-	store       *db.Store
-	hyph        *hyphen.Hyphenator
-	hun         *hunspell.Dictionary // optional (nil if running without Hunspell)
-	webDir      string
-	mux         *http.ServeMux
-	limiter     *ipRateLimiter
-	statsMu     sync.RWMutex
-	cachedStats *db.Stats
+	store         *db.Store
+	hyph          *hyphen.Hyphenator
+	hun           *hunspell.Dictionary // optional (nil if running without Hunspell)
+	webDir        string
+	mux           *http.ServeMux
+	limiter       *ipRateLimiter
+	statsMu       sync.RWMutex
+	cachedStats   *db.Stats
+	sitemapLemmas []string
 }
 
 // Config configures the HTTP API server.
@@ -60,6 +61,9 @@ func NewServer(cfg Config) *Server {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.handleHealth)
+	s.mux.HandleFunc("GET /robots.txt", s.handleRobotsTxt)
+	s.mux.HandleFunc("GET /sitemap.xml", s.handleSitemapIndex)
+	s.mux.HandleFunc("GET /sitemaps/{name}", s.handleSitemapChunk)
 	s.mux.HandleFunc("GET /api/v1/meta", s.handleMeta)
 	s.mux.HandleFunc("GET /api/v1/words/{word}", s.handleWordCard)
 	s.mux.HandleFunc("GET /api/v1/analyze", s.handleAnalyze)

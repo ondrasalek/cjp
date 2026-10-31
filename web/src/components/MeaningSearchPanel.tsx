@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import type { SearchHit } from "../types";
+import { isPlainLeftClick, wordHref } from "../seo";
 
 const SAMPLE_QUERIES = [
   "psovita selma",
@@ -110,13 +111,18 @@ export function MeaningSearchPanel({ onSelectWord }: { onSelectWord: (word: stri
                 className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 sm:p-4 dark:border-slate-800 dark:bg-slate-950/50 space-y-1.5"
               >
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onSelectWord(h.lemma)}
-                    className="text-start text-[1.05rem] font-bold text-blue-700 hover:underline dark:text-blue-400 cursor-pointer"
+                  <a
+                    href={wordHref(h.lemma)}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e)) {
+                        e.preventDefault();
+                        onSelectWord(h.lemma);
+                      }
+                    }}
+                    className="text-start text-[1.05rem] font-bold text-blue-700 hover:underline dark:text-blue-400"
                   >
                     {h.lemma}
-                  </button>
+                  </a>
                   {(h.pos_cs || h.pos) && (
                     <span className="text-[0.78rem] text-slate-500 dark:text-slate-400">
                       {h.pos_cs || h.pos}

@@ -7,6 +7,8 @@ import { LexemeCard } from "./components/LexemeCard";
 import { AnalyzePanel } from "./components/AnalyzePanel";
 import { MeaningSearchPanel } from "./components/MeaningSearchPanel";
 import { ApiDocsPanel } from "./components/ApiDocsPanel";
+import { SeoGuideSection } from "./components/SeoGuideSection";
+import { applyDocumentSEO, isPlainLeftClick, parseLocationRoute, wordHref } from "./seo";
 
 type TabKey = "dictionary" | "tools" | "fts" | "api";
 
@@ -20,9 +22,9 @@ const AVAILABLE_LANGS = [
 
 export function App() {
   const [activeTab, setActiveTab] = useState<TabKey>("dictionary");
-  const [word, setWord] = useState<string>(() => {
-    return new URLSearchParams(window.location.search).get("q") || "žena";
-  });
+  const [routeState, setRouteState] = useState(() => parseLocationRoute());
+  const word = routeState.word;
+  const isWordRoute = routeState.isWordRoute;
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en", "ru"]);
   const [cardData, setCardData] = useState<WordCardResponse | null>(null);
   const [loadingWord, setLoadingWord] = useState(false);
@@ -71,22 +73,35 @@ export function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      const q = new URLSearchParams(window.location.search).get("q") || "žena";
-      setWord(q);
+      setRouteState(parseLocationRoute());
       setActiveTab("dictionary");
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  useEffect(() => {
+    applyDocumentSEO({
+      activeTab,
+      isWordRoute,
+      queryWord: word,
+      cardData: cardData && cardData.query === word ? cardData : null,
+    });
+  }, [activeTab, isWordRoute, word, cardData]);
+
   const handleSelectWord = (nextWord: string) => {
     const clean = nextWord.trim();
     if (!clean) return;
-    setWord(clean);
+    setRouteState({ word: clean, isWordRoute: true });
     setActiveTab("dictionary");
-    const url = new URL(window.location.href);
-    url.searchParams.set("q", clean);
-    window.history.pushState({ q: clean }, "", url);
+    window.history.pushState({ q: clean }, "", wordHref(clean));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleGoHome = () => {
+    setRouteState({ word: "žena", isWordRoute: false });
+    setActiveTab("dictionary");
+    window.history.pushState({}, "", "/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -223,8 +238,10 @@ export function App() {
             <a
               href="/"
               onClick={(e) => {
-                e.preventDefault();
-                handleSelectWord("žena");
+                if (isPlainLeftClick(e)) {
+                  e.preventDefault();
+                  handleGoHome();
+                }
               }}
               className="inline-flex shrink-0 items-center gap-2.5 text-inherit no-underline"
             >
@@ -415,6 +432,8 @@ export function App() {
                 )
               )}
             </section>
+
+            <SeoGuideSection onSelectWord={handleSelectWord} />
           </>
         )}
 

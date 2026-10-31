@@ -679,3 +679,31 @@ func BuildInflectionSummary(lemma, pos string, forms []WordForm) *InflectionSumm
 	}
 	return sum
 }
+
+// ListSitemapLemmas returns distinct rich headword lemmas suitable for Google XML sitemaps.
+func (s *Store) ListSitemapLemmas(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT lemma
+		FROM lexemes
+		WHERE source = 'cswiktionary'
+		  AND lemma NOT LIKE '% %'
+		  AND lemma NOT LIKE '-%'
+		  AND lemma NOT LIKE '%-'
+		  AND LENGTH(lemma) BETWEEN 1 AND 60
+		ORDER BY id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	lemmas := make([]string, 0, 48000)
+	for rows.Next() {
+		var l string
+		if err := rows.Scan(&l); err != nil {
+			return nil, err
+		}
+		lemmas = append(lemmas, l)
+	}
+	return lemmas, rows.Err()
+}
