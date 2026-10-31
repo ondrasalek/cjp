@@ -347,12 +347,20 @@ export function App() {
                 <p className="text-[0.95rem] text-slate-500">Načítám heslo „{word}“…</p>
               ) : cardData?.error ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-[0.92rem] sm:text-[0.95rem] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/60 dark:text-amber-200">
-                  <strong>Slovo „{cardData.query}“ nebylo v databázi nalezeno.</strong>
-                  {cardData.syllables && cardData.syllables.length > 0 && (
-                    <span className="block sm:inline sm:ml-2 mt-1 sm:mt-0">
-                      Algoritmické dělení na slabiky:{" "}
-                      <strong>{cardData.syllables.join("-")}</strong>
-                    </span>
+                  {cardData.error === "word not found" ? (
+                    <>
+                      <strong>Slovo „{cardData.query}“ nebylo v databázi nalezeno.</strong>
+                      {cardData.syllables && cardData.syllables.length > 0 && (
+                        <span className="block sm:inline sm:ml-2 mt-1 sm:mt-0">
+                          Algoritmické dělení na slabiky:{" "}
+                          <strong>{cardData.syllables.join("-")}</strong>
+                        </span>
+                      )}
+                    </>
+                  ) : cardData.error === "rate_limited" ? (
+                    <strong>Příliš mnoho požadavků – zkuste to prosím za okamžik.</strong>
+                  ) : (
+                    <strong>{cardData.error}</strong>
                   )}
                 </div>
               ) : (

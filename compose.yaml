@@ -13,6 +13,8 @@ services:
       CJP_RAW_DIR: "/data/raw"
       CJP_INCLUDE_GPL: "${CJP_INCLUDE_GPL:-true}"
       CJP_USE_HUNSPELL: "${CJP_USE_HUNSPELL:-true}"
+      CJP_RATE_LIMIT_RPS: "${CJP_RATE_LIMIT_RPS:-5}"
+      CJP_RATE_LIMIT_BURST: "${CJP_RATE_LIMIT_BURST:-30}"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
       interval: 5s

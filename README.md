@@ -50,10 +50,10 @@ Po spuštění běží:
 - **Webové rozhraní (`cjp-web`)**: [http://localhost:5173](http://localhost:5173)
 - **REST API (`cjp-api`)**: [http://localhost:8088](http://localhost:8088) *(dostupné také přes reverzní proxy webu na `http://localhost:5173/api/v1/...`)*
 
-Porty na hostiteli lze změnit proměnnými prostředí:
+Porty a limity lze upravit proměnnými prostředí:
 
 ```bash
-WEB_PORT=8080 API_PORT=8088 docker compose up -d --build
+WEB_PORT=8080 API_PORT=8088 CJP_RATE_LIMIT_RPS=5 CJP_RATE_LIMIT_BURST=30 docker compose up -d --build
 ```
 
 ---

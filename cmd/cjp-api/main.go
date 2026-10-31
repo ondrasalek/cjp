@@ -25,6 +25,8 @@ func main() {
 	rawDir := flag.String("raw-dir", "data/raw", "Path to raw pattern/affix files")
 	webDir := flag.String("web-dir", "web/dist", "Path to built frontend static directory (SPA)")
 	useHunspell := flag.Bool("hunspell", true, "Load Hunspell cs_CZ in memory for dynamic affix expansion & spellcheck")
+	rateLimitRPS := flag.Float64("rate-limit", 5.0, "Per-IP sustained API rate limit in requests/sec (<= 0 disables)")
+	rateLimitBurst := flag.Int("rate-burst", 30, "Per-IP API burst capacity")
 	flag.Parse()
 
 	if _, err := os.Stat(*dbPath); err != nil {
@@ -67,14 +69,20 @@ func main() {
 		Hyphenator: hyph,
 		Hunspell:   hun,
 		WebDir:     *webDir,
+		RateLimit: api.RateLimitConfig{
+			RPS:   *rateLimitRPS,
+			Burst: *rateLimitBurst,
+		},
 	})
 
 	httpSrv := &http.Server{
 		Addr:              *addr,
 		Handler:           srv.Handler(),
+		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

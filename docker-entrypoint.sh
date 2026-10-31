@@ -7,6 +7,8 @@ WEB_DIR="${CJP_WEB_DIR:-}"
 INCLUDE_GPL="${CJP_INCLUDE_GPL:-true}"
 USE_HUNSPELL="${CJP_USE_HUNSPELL:-true}"
 ADDR="${CJP_ADDR:-:8080}"
+RATE_LIMIT_RPS="${CJP_RATE_LIMIT_RPS:-5}"
+RATE_LIMIT_BURST="${CJP_RATE_LIMIT_BURST:-30}"
 
 if [ ! -f "$DB_PATH" ]; then
     echo "[entrypoint] Database $DB_PATH not found. Bootstrapping from open datasets..."
@@ -19,4 +21,6 @@ exec cjp-api \
     --db "$DB_PATH" \
     --raw-dir "$RAW_DIR" \
     --web-dir "$WEB_DIR" \
-    --hunspell="$USE_HUNSPELL"
+    --hunspell="$USE_HUNSPELL" \
+    --rate-limit="$RATE_LIMIT_RPS" \
+    --rate-burst="$RATE_LIMIT_BURST"

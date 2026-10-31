@@ -8,7 +8,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ondrejsalek/cjp/internal/db"
 	"github.com/ondrejsalek/cjp/internal/hunspell"
@@ -16,13 +18,21 @@ import (
 	"github.com/ondrejsalek/cjp/internal/textnorm"
 )
 
+const (
+	maxWordQueryRunes   = 120
+	maxSearchQueryRunes = 200
+)
+
 // Server serves the Czech Lexical REST API and optional SPA frontend.
 type Server struct {
-	store  *db.Store
-	hyph   *hyphen.Hyphenator
-	hun    *hunspell.Dictionary // optional (nil if running without Hunspell)
-	webDir string
-	mux    *http.ServeMux
+	store       *db.Store
+	hyph        *hyphen.Hyphenator
+	hun         *hunspell.Dictionary // optional (nil if running without Hunspell)
+	webDir      string
+	mux         *http.ServeMux
+	limiter     *ipRateLimiter
+	statsMu     sync.RWMutex
+	cachedStats *db.Stats
 }
 
 // Config configures the HTTP API server.
@@ -31,16 +41,18 @@ type Config struct {
 	Hyphenator *hyphen.Hyphenator
 	Hunspell   *hunspell.Dictionary
 	WebDir     string
+	RateLimit  RateLimitConfig
 }
 
 // NewServer creates and wires a new API Server.
 func NewServer(cfg Config) *Server {
 	s := &Server{
-		store:  cfg.Store,
-		hyph:   cfg.Hyphenator,
-		hun:    cfg.Hunspell,
-		webDir: cfg.WebDir,
-		mux:    http.NewServeMux(),
+		store:   cfg.Store,
+		hyph:    cfg.Hyphenator,
+		hun:     cfg.Hunspell,
+		webDir:  cfg.WebDir,
+		mux:     http.NewServeMux(),
+		limiter: newIPRateLimiter(cfg.RateLimit),
 	}
 	s.routes()
 	return s
@@ -74,17 +86,20 @@ func (s *Server) routes() {
 	}
 }
 
-// Handler returns the root http.Handler with CORS and JSON headers.
+// Handler returns the root http.Handler with CORS, rate limiting, and security headers.
 func (s *Server) Handler() http.Handler {
+	core := s.limiter.wrap(s.mux)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		s.mux.ServeHTTP(w, r)
+		core.ServeHTTP(w, r)
 	})
 }
 
@@ -96,11 +111,23 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
-	stats, err := s.store.GetStats(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+	s.statsMu.RLock()
+	stats := s.cachedStats
+	s.statsMu.RUnlock()
+
+	if stats == nil {
+		loaded, err := s.store.GetStats(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		s.statsMu.Lock()
+		s.cachedStats = loaded
+		stats = loaded
+		s.statsMu.Unlock()
 	}
+
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"service":          "cjp-api",
 		"hunspell_enabled": s.hun != nil,
@@ -123,6 +150,10 @@ func (s *Server) handleWordCard(w http.ResponseWriter, r *http.Request) {
 	word := strings.TrimSpace(r.PathValue("word"))
 	if word == "" {
 		writeError(w, http.StatusBadRequest, "missing word parameter")
+		return
+	}
+	if utf8.RuneCountInString(word) > maxWordQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 120 characters)")
 		return
 	}
 
@@ -252,6 +283,7 @@ func (s *Server) handleWordCard(w http.ResponseWriter, r *http.Request) {
 		sylls = entries[0].Syllables
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, WordCardResponse{
 		Query:           word,
 		ExactLemmaMatch: exactLemma,
@@ -270,6 +302,10 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 	if q == "" {
 		writeError(w, http.StatusBadRequest, "missing 'q' query parameter")
+		return
+	}
+	if utf8.RuneCountInString(q) > maxWordQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 120 characters)")
 		return
 	}
 
@@ -323,6 +359,10 @@ func (s *Server) handleAutocomplete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing 'q' query parameter")
 		return
 	}
+	if utf8.RuneCountInString(q) > maxWordQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 120 characters)")
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 10
@@ -333,6 +373,7 @@ func (s *Server) handleAutocomplete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"query":       q,
 		"count":       len(items),
@@ -349,8 +390,12 @@ func (s *Server) handleHyphenate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing 'q' query parameter")
 		return
 	}
+	if utf8.RuneCountInString(q) > maxWordQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 120 characters)")
+		return
+	}
 	sep := r.URL.Query().Get("sep")
-	if sep == "" {
+	if sep == "" || utf8.RuneCountInString(sep) > 5 {
 		sep = "-"
 	}
 
@@ -377,6 +422,10 @@ func (s *Server) handleTranslations(w http.ResponseWriter, r *http.Request) {
 	word := strings.TrimSpace(r.PathValue("word"))
 	if word == "" {
 		writeError(w, http.StatusBadRequest, "missing word parameter")
+		return
+	}
+	if utf8.RuneCountInString(word) > maxWordQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 120 characters)")
 		return
 	}
 	langs := parseLangsParam(r.URL.Query().Get("langs"))
@@ -464,6 +513,10 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing 'q' query parameter")
 		return
 	}
+	if utf8.RuneCountInString(q) > maxSearchQueryRunes {
+		writeError(w, http.StatusBadRequest, "query too long (max 200 characters)")
+		return
+	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
 		limit = 20
@@ -474,6 +527,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"query":   q,
 		"count":   len(res.Hits),

@@ -169,3 +169,63 @@ func TestIntegrationEndpoints(t *testing.T) {
 		t.Errorf("expected translations_from_lemma='horizontální' on /translations/horizontálněji")
 	}
 }
+
+func TestRateLimitAndQueryCaps(t *testing.T) {
+	srv := setupRealTestServer(t)
+	srv.limiter = newIPRateLimiter(RateLimitConfig{RPS: 1, Burst: 3})
+	h := srv.Handler()
+
+	// 1. Oversized query is rejected before DB/Hunspell work
+	longWord := make([]byte, 150)
+	for i := range longWord {
+		longWord[i] = 'a'
+	}
+	reqLong := httptest.NewRequest(http.MethodGet, "/api/v1/analyze?q="+string(longWord), nil)
+	reqLong.RemoteAddr = "203.0.113.10:12345"
+	recLong := httptest.NewRecorder()
+	h.ServeHTTP(recLong, reqLong)
+	if recLong.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for oversized query, got %d", recLong.Code)
+	}
+
+	// 2. Burst of 3 requests from a second IP succeeds, 4th immediately hits 429
+	for i := 1; i <= 3; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/hyphenate?q=pes", nil)
+		req.RemoteAddr = "198.51.100.42:54321"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200, got %d", i, rec.Code)
+		}
+	}
+
+	reqBlocked := httptest.NewRequest(http.MethodGet, "/api/v1/hyphenate?q=pes", nil)
+	reqBlocked.RemoteAddr = "198.51.100.42:54321"
+	recBlocked := httptest.NewRecorder()
+	h.ServeHTTP(recBlocked, reqBlocked)
+	if recBlocked.Code != http.StatusTooManyRequests {
+		t.Fatalf("4th burst request: expected 429, got %d", recBlocked.Code)
+	}
+	if recBlocked.Header().Get("Retry-After") == "" {
+		t.Errorf("expected Retry-After header on 429 response")
+	}
+
+	// 3. Spoofed X-Forwarded-For from a public RemoteAddr does NOT bypass limit
+	reqSpoof := httptest.NewRequest(http.MethodGet, "/api/v1/hyphenate?q=pes", nil)
+	reqSpoof.RemoteAddr = "198.51.100.42:54321"
+	reqSpoof.Header.Set("X-Forwarded-For", "1.2.3.4")
+	recSpoof := httptest.NewRecorder()
+	h.ServeHTTP(recSpoof, reqSpoof)
+	if recSpoof.Code != http.StatusTooManyRequests {
+		t.Fatalf("spoofed XFF from public peer should still be 429, got %d", recSpoof.Code)
+	}
+
+	// 4. /healthz is never throttled even when IP bucket is exhausted
+	reqHealth := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	reqHealth.RemoteAddr = "198.51.100.42:54321"
+	recHealth := httptest.NewRecorder()
+	h.ServeHTTP(recHealth, reqHealth)
+	if recHealth.Code != http.StatusOK {
+		t.Fatalf("/healthz should never be rate-limited, got %d", recHealth.Code)
+	}
+}

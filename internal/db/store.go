@@ -481,6 +481,9 @@ func (s *Store) SearchDefinitionsWithMeta(ctx context.Context, query string, lim
 	if len(activeTokens) == 0 {
 		activeTokens = allTokens
 	}
+	if len(activeTokens) > 8 {
+		activeTokens = activeTokens[:8]
+	}
 
 	groups := make([]string, 0, len(activeTokens))
 	for _, tok := range activeTokens {
