@@ -30,7 +30,7 @@ export function SeoGuideSection({ onSelectWord }: { onSelectWord: (word: string)
           id="cjp-seo-guide-heading"
           className="text-[1.05rem] sm:text-[1.15rem] font-bold text-slate-900 dark:text-slate-100 text-balance"
         >
-          Český slovník, tvar slova a slovotvary online
+          Slovotvar.cz – český slovník, tvar slova a slovotvary online
         </h2>
         <p className="max-w-[85ch] text-[0.85rem] sm:text-[0.875rem] text-slate-600 dark:text-slate-400 text-pretty">
           Otevřená jazyková databáze umožňuje okamžitě ověřit jakékoliv <strong>české slovo</strong>,

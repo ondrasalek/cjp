@@ -8,7 +8,14 @@ import { AnalyzePanel } from "./components/AnalyzePanel";
 import { MeaningSearchPanel } from "./components/MeaningSearchPanel";
 import { ApiDocsPanel } from "./components/ApiDocsPanel";
 import { SeoGuideSection } from "./components/SeoGuideSection";
-import { applyDocumentSEO, isPlainLeftClick, parseLocationRoute, wordHref } from "./seo";
+import { ApiQuickstartWidget, GitHubMark, GITHUB_REPO_URL, ProjectBadges } from "./components/HeroHighlights";
+import {
+  applyDocumentSEO,
+  DEVELOPERS_PATH,
+  isPlainLeftClick,
+  parseLocationRoute,
+  wordHref,
+} from "./seo";
 
 type TabKey = "dictionary" | "tools" | "fts" | "api";
 
@@ -21,8 +28,10 @@ const AVAILABLE_LANGS = [
 ];
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>("dictionary");
   const [routeState, setRouteState] = useState(() => parseLocationRoute());
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    routeState.isDevelopersRoute ? "api" : "dictionary"
+  );
   const word = routeState.word;
   const isWordRoute = routeState.isWordRoute;
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en", "ru"]);
@@ -73,8 +82,9 @@ export function App() {
 
   useEffect(() => {
     const onPopState = () => {
-      setRouteState(parseLocationRoute());
-      setActiveTab("dictionary");
+      const next = parseLocationRoute();
+      setRouteState(next);
+      setActiveTab(next.isDevelopersRoute ? "api" : "dictionary");
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -105,6 +115,23 @@ export function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  /** Switches tabs; the API tab owns its own crawlable URL (/vyvojari). */
+  const selectTab = (key: TabKey) => {
+    setActiveTab(key);
+    const onDevelopersUrl = window.location.pathname.replace(/\/+$/, "") === DEVELOPERS_PATH;
+    if (key === "api" && !onDevelopersUrl) {
+      window.history.pushState({}, "", DEVELOPERS_PATH);
+    } else if (key !== "api" && onDevelopersUrl) {
+      setRouteState({ word: "žena", isWordRoute: false });
+      window.history.pushState({}, "", "/");
+    }
+  };
+
+  const openApiDocs = () => {
+    selectTab("api");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const toggleLang = (code: string) => {
     setSelectedLangs((prev) =>
       prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
@@ -120,7 +147,7 @@ export function App() {
     { key: "dictionary", label: "Slovník & tvary", shortLabel: "Slovník", Icon: BookOpen },
     { key: "tools", label: "Analýza & slabiky", shortLabel: "Analýza", Icon: Sparkles },
     { key: "fts", label: "Hledat ve významech", shortLabel: "Významy", Icon: TextSearch },
-    { key: "api", label: "REST API", shortLabel: "API", Icon: Code2 },
+    { key: "api", label: "API & Dokumentace", shortLabel: "API", Icon: Code2 },
   ];
 
   const formatFormMatchLabel = (fm: FormMatch) => {
@@ -249,14 +276,14 @@ export function App() {
                 aria-hidden="true"
                 className="inline-grid size-8 sm:size-9 shrink-0 place-items-center rounded-xl bg-blue-700 text-[0.88rem] font-extrabold text-white dark:bg-blue-500 dark:text-slate-950"
               >
-                ČJ
+                S
               </span>
               <span className="flex flex-col leading-tight">
                 <strong className="whitespace-nowrap text-[0.95rem] sm:text-[1rem] text-slate-900 dark:text-slate-100">
-                  Český slovník
+                  Slovotvar.cz
                 </strong>
                 <span className="hidden xl:inline whitespace-nowrap text-[0.74rem] text-slate-500 dark:text-slate-400">
-                  Otevřená jazyková databáze
+                  Open source • zdarma • bez reklam
                 </span>
               </span>
             </a>
@@ -268,10 +295,11 @@ export function App() {
                   const active = activeTab === key;
                   return (
                     <li key={key}>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab(key)}
-                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 lg:px-3.5 py-1.5 text-[0.84rem] font-semibold transition cursor-pointer ${
+                      <NavControl
+                        tab={key}
+                        active={active}
+                        onSelect={selectTab}
+                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 lg:px-3.5 py-1.5 text-[0.84rem] font-semibold no-underline transition cursor-pointer ${
                           active
                             ? "bg-white text-blue-800 shadow-2xs dark:bg-slate-900 dark:text-blue-300"
                             : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -280,7 +308,7 @@ export function App() {
                         <Icon className="size-4 shrink-0" aria-hidden="true" />
                         <span className="lg:hidden">{shortLabel}</span>
                         <span className="hidden lg:inline">{label}</span>
-                      </button>
+                      </NavControl>
                     </li>
                   );
                 })}
@@ -292,20 +320,15 @@ export function App() {
                 {statsText}
               </span>
               <a
-                href="https://github.com/ondrasalek"
+                href={GITHUB_REPO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="GitHub (@ondrasalek)"
-                className="inline-grid size-10 sm:size-9 shrink-0 place-items-center rounded-xl sm:rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                aria-label="Zdrojový kód na GitHubu (open source)"
+                title="Open source na GitHubu"
+                className="inline-flex h-10 sm:h-9 min-w-10 sm:min-w-9 shrink-0 items-center justify-center gap-1.5 rounded-xl sm:rounded-lg border border-slate-200 bg-white px-2.5 text-[0.8rem] font-semibold text-slate-700 no-underline transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                  className="size-4"
-                >
-                  <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
-                </svg>
+                <GitHubMark className="size-4" />
+                <span className="hidden xl:inline">GitHub</span>
               </a>
               <ThemeToggle />
             </div>
@@ -318,10 +341,11 @@ export function App() {
                 const active = activeTab === key;
                 return (
                   <li key={key} className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab(key)}
-                      className={`inline-flex min-h-8.5 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-1 text-[0.78rem] font-semibold transition cursor-pointer ${
+                    <NavControl
+                      tab={key}
+                      active={active}
+                      onSelect={selectTab}
+                      className={`inline-flex min-h-8.5 w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-1 text-[0.78rem] font-semibold no-underline transition cursor-pointer ${
                         active
                           ? "bg-white text-blue-800 shadow-2xs dark:bg-slate-900 dark:text-blue-300"
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -329,7 +353,7 @@ export function App() {
                     >
                       <Icon className="hidden min-[420px]:block size-3.5 shrink-0" aria-hidden="true" />
                       <span className="truncate">{shortLabel}</span>
-                    </button>
+                    </NavControl>
                   </li>
                 );
               })}
@@ -345,18 +369,29 @@ export function App() {
             <section className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h1 className="text-[clamp(1.2rem,1rem+1.1vw,1.75rem)] font-extrabold leading-snug tracking-tight text-slate-900 dark:text-slate-50">
-                  Česká slovníková a tvaroslovná databáze
+                  Skloňování a časování českých slov online
                 </h1>
                 <span className="hidden sm:inline-block 2xl:hidden whitespace-nowrap text-[0.78rem] font-medium text-slate-500 dark:text-slate-400">
                   {statsText}
                 </span>
               </div>
 
+              <ProjectBadges onOpenApi={openApiDocs} />
+
+              <p className="max-w-[70ch] text-[0.92rem] sm:text-[1rem] leading-relaxed text-slate-600 dark:text-slate-300 text-pretty">
+                Bezplatný <strong className="text-slate-900 dark:text-slate-100">open-source</strong> slovník
+                pro automatické skloňování a časování slov.{" "}
+                <strong className="text-slate-900 dark:text-slate-100">100% bez reklam</strong> a s{" "}
+                <strong className="text-slate-900 dark:text-slate-100">veřejným API</strong> pro vývojáře.
+              </p>
+
               <SearchBar
                 query={word}
                 onSelectWord={handleSelectWord}
                 langFilter={langFilterControl}
               />
+
+              {!isWordRoute && <ApiQuickstartWidget onOpenApi={openApiDocs} />}
             </section>
 
             <section className="space-y-4">
@@ -482,12 +517,24 @@ export function App() {
             <div className="flex items-center justify-between sm:justify-end gap-3">
               <span className="text-[0.75rem] sm:hidden">{statsText}</span>
               <a
-                href="/api/v1/meta"
+                href={DEVELOPERS_PATH}
+                onClick={(e) => {
+                  if (isPlainLeftClick(e)) {
+                    e.preventDefault();
+                    openApiDocs();
+                  }
+                }}
+                className="shrink-0 font-medium text-blue-700 hover:underline dark:text-blue-400"
+              >
+                API &amp; Dokumentace
+              </a>
+              <a
+                href={GITHUB_REPO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 font-medium text-blue-700 hover:underline dark:text-blue-400"
               >
-                /api/v1/meta (JSON)
+                Zdrojový kód (MIT)
               </a>
             </div>
           </div>
@@ -525,5 +572,43 @@ export function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+/** Tab control: the API tab is a real crawlable link (/vyvojari), others are in-page buttons. */
+function NavControl({
+  tab,
+  active,
+  onSelect,
+  className,
+  children,
+}: {
+  tab: TabKey;
+  active: boolean;
+  onSelect: (tab: TabKey) => void;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (tab === "api") {
+    return (
+      <a
+        href={DEVELOPERS_PATH}
+        aria-current={active ? "page" : undefined}
+        onClick={(e) => {
+          if (isPlainLeftClick(e)) {
+            e.preventDefault();
+            onSelect(tab);
+          }
+        }}
+        className={className}
+      >
+        {children}
+      </a>
+    );
+  }
+  return (
+    <button type="button" aria-pressed={active} onClick={() => onSelect(tab)} className={className}>
+      {children}
+    </button>
   );
 }

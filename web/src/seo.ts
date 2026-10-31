@@ -1,10 +1,13 @@
 import type { LexemeDetail, WordCardResponse } from "./types";
 
-export const HOME_TITLE =
-  "Český slovník a slovotvary – české slovo, tvar slova, skloňování a časování";
+export const SITE_NAME = "Slovotvar.cz";
+
+export const DEVELOPERS_PATH = "/vyvojari";
+
+export const HOME_TITLE = "Slovotvar.cz | Skloňování online & Bezplatné API bez reklam";
 
 export const HOME_DESCRIPTION =
-  "Otevřený český slovník a tvaroslovná databáze (~300 000 hesel a téměř 1 milion slovotvarů): ověřte jakékoliv české slovo, tvar slova, skloňování v 1.–7. pádu, časování sloves, stupňování, dělení na slabiky, významy, synonyma a překlady.";
+  "Otevřený (Open Source) český slovník pro automatické skloňování a časování slov. Zcela zdarma, bez reklam a s rychlým veřejným API rozhraním pro vývojáře.";
 
 export function wordHref(word: string): string {
   return `/slovo/${encodeURIComponent(word.trim())}`;
@@ -17,10 +20,14 @@ export function isPlainLeftClick(e: React.MouseEvent<HTMLAnchorElement>): boolea
 export interface RouteState {
   word: string;
   isWordRoute: boolean;
+  isDevelopersRoute?: boolean;
 }
 
 export function parseLocationRoute(): RouteState {
   const path = window.location.pathname;
+  if (path.replace(/\/+$/, "") === DEVELOPERS_PATH) {
+    return { word: "žena", isWordRoute: false, isDevelopersRoute: true };
+  }
   if (path.startsWith("/slovo/")) {
     const raw = path.slice("/slovo/".length).replace(/\/+$/, "");
     if (raw) {
@@ -138,8 +145,8 @@ export function applyDocumentSEO(params: {
   let jsonLdGraph: Record<string, unknown>[] = [
     {
       "@type": "WebSite",
-      name: "Český slovník a slovotvary",
-      alternateName: ["CJP Český slovník", "Tvar slova a slovotvary česky"],
+      name: SITE_NAME,
+      alternateName: ["Slovotvar", "Český slovník a slovotvary", "Skloňování a časování online"],
       inLanguage: "cs",
       url: `${origin}/`,
       potentialAction: {
@@ -152,20 +159,33 @@ export function applyDocumentSEO(params: {
       "@type": "FAQPage",
       mainEntity: FAQ_ENTITIES,
     },
+    {
+      "@type": "WebAPI",
+      name: "Slovotvar.cz REST API",
+      description:
+        "Bezplatné veřejné REST API pro skloňování, časování, slovotvary, dělení na slabiky, synonyma a překlady českých slov.",
+      documentation: `${origin}${DEVELOPERS_PATH}`,
+      isAccessibleForFree: true,
+      inLanguage: "cs",
+      license: "https://opensource.org/licenses/MIT",
+      provider: { "@type": "Organization", name: "OSLKS", url: "https://slks.cz" },
+      sameAs: ["https://github.com/ondrasalek/cjp"],
+    },
   ];
 
   if (activeTab === "tools") {
-    title = "Morfologická analýza, tvar slova a dělení na slabiky | Český slovník";
+    title = "Morfologická analýza, tvar slova a dělení na slabiky | Slovotvar.cz";
     description =
       "Ověřte, zda české slovo nebo tvar slova existuje, zjistěte mluvnické kategorie (pád, číslo, rod, vid) a rozdělte libovolný český výraz na slabiky.";
   } else if (activeTab === "fts") {
-    title = "Hledání českých slov podle významu a definice | Český slovník";
+    title = "Hledání českých slov podle významu a definice | Slovotvar.cz";
     description =
       "Fulltextové vyhledávání českých slov podle popisu a definice významu (funguje česky s diakritikou i bez diakritiky).";
   } else if (activeTab === "api") {
-    title = "Otevřené REST API pro česká slova, slovotvary a skloňování | CJP";
+    title = "API & Dokumentace – bezplatné API pro skloňování a časování | Slovotvar.cz";
     description =
-      "Dokumentace bezplatného REST API pro český slovník: skloňování, časování, slovotvary, dělení na slabiky, synonyma a překlady.";
+      "Veřejné REST API zdarma a bez API klíče: skloňování, časování, slovotvary, dělení na slabiky, synonyma a překlady českých slov. Open source, bez reklam.";
+    canonicalUrl = `${origin}${DEVELOPERS_PATH}`;
   } else if (isWordRoute) {
     const cleanQ = queryWord.trim();
     canonicalUrl = `${origin}${wordHref(cleanQ)}`;
@@ -173,7 +193,7 @@ export function applyDocumentSEO(params: {
     if (cardData?.error) {
       // Prevent Soft-404 indexing for unknown queries
       robots = "noindex, follow";
-      title = `${cleanQ} – hledání slova | Český slovník a slovotvary`;
+      title = `${cleanQ} – hledání slova | Slovotvar.cz`;
       description = `Výsledek hledání českého výrazu „${cleanQ}“ a algoritmické dělení na slabiky.`;
     } else if (cardData?.entries && cardData.entries.length > 0) {
       const primary = cardData.entries[0];
@@ -186,10 +206,10 @@ export function applyDocumentSEO(params: {
             : "skloňování, tvar slova, slovotvary";
 
       if (cardData.exact_lemma_match) {
-        title = `${primary.lemma} – ${grammarFocus}, význam a slabiky | Český slovník`;
+        title = `${primary.lemma} – ${grammarFocus}, význam a slabiky | Slovotvar.cz`;
         canonicalUrl = `${origin}${wordHref(primary.lemma)}`;
       } else {
-        title = `${cleanQ} – tvar slova „${primary.lemma}“ (${grammarFocus}) | Český slovník`;
+        title = `${cleanQ} – tvar slova „${primary.lemma}“ (${grammarFocus}) | Slovotvar.cz`;
       }
 
       const defSnippet = primary.senses?.[0]?.definition
