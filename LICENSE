@@ -1,0 +1,50 @@
+MIT License (Source Code)
+
+Copyright (c) 2026 OSLKS (https://slks.cz, https://github.com/ondrasalek)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+THIRD-PARTY LINGUISTIC DATA LICENSES (DOWNLOADED AT BUILD/RUNTIME VIA cjp-etl)
+-------------------------------------------------------------------------------
+
+This repository does NOT bundle third-party dictionary dumps directly in Git.
+When running `cjp-etl fetch` / `docker compose up`, the ETL pipeline downloads
+and indexes the following open linguistic datasets under their respective
+licenses:
+
+1. Czech Wiktionary (via Kaikki.org / Wiktextract JSONL extract)
+   - URL: https://cs.wiktionary.org / https://kaikki.org/dictionary/downloads/cs/
+   - License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+
+2. UniMorph Czech (Wiktionary morphological paradigms)
+   - URL: https://github.com/unimorph/ces
+   - License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+
+3. Czech Hyphenation Patterns (csTeX / LibreOffice hyph_cs_CZ.dic)
+   - Author: Pavel Janík & contributors
+   - URL: https://github.com/LibreOffice/dictionaries/tree/master/cs_CZ
+   - License: GNU General Public License (GPL)
+
+4. Czech Hunspell Dictionary & LibreOffice Thesaurus (optional, enabled by default)
+   - Authors: Petr Kolář, Miroslav Pošta & contributors (cs_CZ.dic, cs_CZ.aff, th_cs_CZ.dat)
+   - URL: https://github.com/LibreOffice/dictionaries/tree/master/cs_CZ
+   - License: GNU General Public License (GPL) / GNU Free Documentation License (GFDL)
+   - Note: Can be omitted by building the database with `--include-gpl=false` (`make build-db-cc`)
+     and running the API server with `--hunspell=false` (`CJP_INCLUDE_GPL=false`, `CJP_USE_HUNSPELL=false`).

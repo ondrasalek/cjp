@@ -1,0 +1,35 @@
+services:
+  cjp-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cjp-api
+    ports:
+      - "${API_PORT:-8088}:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      CJP_ADDR: ":8080"
+      CJP_DB_PATH: "/data/cjp.db"
+      CJP_RAW_DIR: "/data/raw"
+      CJP_INCLUDE_GPL: "true"
+      CJP_USE_HUNSPELL: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  cjp-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: cjp-web
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      cjp-api:
+        condition: service_healthy
+    restart: unless-stopped

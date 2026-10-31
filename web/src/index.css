@@ -1,0 +1,377 @@
+@import "tailwindcss";
+
+/* Keep Tailwind dark:* utilities synchronized with <meta name="color-scheme"> and OS preference without JS classes */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    :root:not(:has(> head > meta[name="color-scheme"][content="light"])) & {
+      @slot;
+    }
+  }
+  :root:has(> head > meta[name="color-scheme"][content="dark"]) & {
+    @slot;
+  }
+}
+
+:root {
+  --surface-canvas-light: #f8fafc;
+  --surface-canvas-dark: #090d16;
+  --surface-card-light: #ffffff;
+  --surface-card-dark: #111827;
+  --surface-subtle-light: #f1f5f9;
+  --surface-subtle-dark: #1e293b;
+  --ink-primary-light: #0f172a;
+  --ink-primary-dark: #f1f5f9;
+  --ink-muted-light: #475569;
+  --ink-muted-dark: #94a3b8;
+  --line-border-light: #e2e8f0;
+  --line-border-dark: #263244;
+  --brand-accent-light: #1d4ed8;
+  --brand-accent-dark: #60a5fa;
+
+  /* Fallbacks for browsers without light-dark() */
+  --surface-canvas: var(--surface-canvas-light);
+  --surface-card: var(--surface-card-light);
+  --surface-subtle: var(--surface-subtle-light);
+  --ink-primary: var(--ink-primary-light);
+  --ink-muted: var(--ink-muted-light);
+  --line-border: var(--line-border-light);
+  --brand-accent: var(--brand-accent-light);
+
+  @media (prefers-color-scheme: dark) {
+    --surface-canvas: var(--surface-canvas-dark);
+    --surface-card: var(--surface-card-dark);
+    --surface-subtle: var(--surface-subtle-dark);
+    --ink-primary: var(--ink-primary-dark);
+    --ink-muted: var(--ink-muted-dark);
+    --line-border: var(--line-border-dark);
+    --brand-accent: var(--brand-accent-dark);
+  }
+
+  @supports (color: light-dark(white, black)) {
+    --surface-canvas: light-dark(var(--surface-canvas-light), var(--surface-canvas-dark));
+    --surface-card: light-dark(var(--surface-card-light), var(--surface-card-dark));
+    --surface-subtle: light-dark(var(--surface-subtle-light), var(--surface-subtle-dark));
+    --ink-primary: light-dark(var(--ink-primary-light), var(--ink-primary-dark));
+    --ink-muted: light-dark(var(--ink-muted-light), var(--ink-muted-dark));
+    --line-border: light-dark(var(--line-border-light), var(--line-border-dark));
+    --brand-accent: light-dark(var(--brand-accent-light), var(--brand-accent-dark));
+  }
+
+  color-scheme: light dark;
+  accent-color: var(--brand-accent);
+
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+  }
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+  }
+}
+
+body {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: start;
+  background-color: var(--surface-canvas);
+  color: var(--ink-primary);
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Theme toggle icon visibility driven purely by CSS state */
+.theme-to-light {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-to-dark {
+    display: none;
+  }
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-to-light {
+    display: inline-flex;
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-to-dark {
+  display: none;
+}
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-to-light {
+  display: inline-flex;
+}
+
+/* Balanced tag/pill clouds with progressive enhancement */
+.pill-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  flex-wrap: balance;
+}
+
+/* Search box container query: show icon-only submit on narrow boxes, text label on >= 380px */
+.search-container {
+  container: search-box / inline-size;
+}
+
+.search-submit-label {
+  display: none;
+}
+
+.search-submit-icon {
+  display: inline-block;
+}
+
+@media (min-width: 440px) {
+  .search-submit-label {
+    display: inline;
+  }
+  .search-submit-icon {
+    display: none;
+  }
+}
+
+@supports (container-type: inline-size) {
+  @media (min-width: 440px) {
+    .search-submit-label {
+      display: none;
+    }
+    .search-submit-icon {
+      display: inline-block;
+    }
+  }
+  @container search-box (min-width: 380px) {
+    .search-submit-label {
+      display: inline;
+    }
+    .search-submit-icon {
+      display: none;
+    }
+  }
+}
+
+/* LexemeCard container-driven layout & fluid scaling */
+.lexeme-card-container {
+  container: lexeme-card / inline-size;
+  padding: clamp(1rem, 2.5vw, 1.65rem);
+}
+
+.lexeme-title {
+  /* Max 2.05rem <= 2.5 * 1.35rem for zoom accessibility */
+  font-size: clamp(1.35rem, 1rem + 1.8vw, 2.05rem);
+}
+
+@supports (font-size: 1cqi) {
+  .lexeme-card-container {
+    padding: clamp(1rem, 2.8cqi, 1.65rem);
+  }
+  .lexeme-title {
+    font-size: clamp(1.35rem, 1rem + 2.1cqi, 2.05rem);
+  }
+}
+
+/*
+ * Semantic 3-area grid:
+ * - Stacked (< 43rem): senses -> grammar -> extras (grammar appears right below meanings!)
+ * - Split (>= 43rem):  left column = senses + extras, right column = grammar
+ */
+.lexeme-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.35rem;
+  align-items: start;
+}
+
+.lexeme-grid--split {
+  grid-template-areas:
+    "senses"
+    "grammar";
+}
+
+.lexeme-grid--with-extras {
+  grid-template-areas:
+    "senses"
+    "grammar"
+    "extras";
+}
+
+.lexeme-area-senses {
+  grid-area: senses;
+}
+
+.lexeme-area-grammar {
+  grid-area: grammar;
+}
+
+.lexeme-area-extras {
+  grid-area: extras;
+}
+
+.grammar-jump-link {
+  display: inline-flex;
+}
+
+@media (min-width: 820px) {
+  .lexeme-grid--split {
+    grid-template-columns: minmax(0, 1.25fr) minmax(18.5rem, 0.95fr);
+    grid-template-areas: "senses grammar";
+    column-gap: 1.75rem;
+    row-gap: 1.35rem;
+  }
+  .lexeme-grid--with-extras {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "senses  grammar"
+      "extras  grammar";
+  }
+  .grammar-jump-link {
+    display: none;
+  }
+}
+
+@supports (container-type: inline-size) {
+  @media (min-width: 820px) {
+    .lexeme-grid--split {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto;
+      grid-template-areas:
+        "senses"
+        "grammar";
+      gap: 1.35rem;
+    }
+    .lexeme-grid--with-extras {
+      grid-template-areas:
+        "senses"
+        "grammar"
+        "extras";
+    }
+    .grammar-jump-link {
+      display: inline-flex;
+    }
+  }
+
+  @container lexeme-card (min-width: 43rem) {
+    .lexeme-grid--split {
+      grid-template-columns: minmax(0, 1.25fr) minmax(18.5rem, 0.95fr);
+      grid-template-areas: "senses grammar";
+      column-gap: 1.75rem;
+      row-gap: 1.35rem;
+    }
+    .lexeme-grid--with-extras {
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "senses  grammar"
+        "extras  grammar";
+    }
+    .grammar-jump-link {
+      display: none;
+    }
+  }
+}
+
+/* Subgrid-aligned API endpoint cards on multi-column viewports */
+.endpoint-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .endpoint-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .endpoint-card {
+    grid-row: span 4;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: subgrid;
+    gap: 0.65rem;
+  }
+}
+
+/* Responsive Data Tables (container-query compact & stacked modes) */
+.table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(32rem, 75dvh);
+  container-type: inline-size;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.grammar-table {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.grammar-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+.grammar-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  background-color: var(--surface-card);
+}
+
+@container (width < 460px) {
+  .grammar-table :is(th, td) {
+    padding-block: 0.45rem;
+    padding-inline: 0.65rem;
+    font-size: 0.85rem;
+  }
+}
+
+@container (width < 340px) {
+  .grammar-table,
+  .grammar-table thead,
+  .grammar-table tbody,
+  .grammar-table tr,
+  .grammar-table th,
+  .grammar-table td {
+    display: block;
+  }
+
+  .grammar-table thead {
+    display: none;
+  }
+
+  .grammar-table tbody tr {
+    border-block-end: 2px solid var(--line-border);
+  }
+
+  .grammar-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--surface-subtle);
+  }
+
+  .grammar-table.declension-table {
+    --label-2: "Jednotné č.";
+    --label-3: "Množné č.";
+  }
+
+  .grammar-table.declension-table td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .grammar-table.declension-table td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+
+  .grammar-table.conjugation-table {
+    --label-2: "Tvary";
+  }
+
+  .grammar-table.conjugation-table td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+}

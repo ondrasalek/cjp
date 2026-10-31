@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#1d4ed8"/>
+  <path d="M25 14l6 6 6-6h5l-8.5 9h-5L20 14h5z" fill="#93c5fd"/>
+  <text x="32" y="47" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="28" fill="#ffffff">ČJ</text>
+</svg>
