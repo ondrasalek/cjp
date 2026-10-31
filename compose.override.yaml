@@ -1,0 +1,11 @@
+# Automatically loaded by local `docker compose up` (ignored by Coolify `-f compose.yaml`).
+services:
+  cjp-api:
+    ports:
+      - "${API_PORT:-8088}:8080"
+    volumes: !override
+      - ./data:/data
+
+  cjp-web:
+    ports:
+      - "${WEB_PORT:-5173}:80"

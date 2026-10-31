@@ -88,15 +88,14 @@ make test
 
 ---
 
-## Nasazení na vlastní doménu
+## Nasazení na vlastní doménu (Coolify / Caddy / Traefik)
 
-Kontejner `cjp-web` již v sobě obsahuje produkční **Nginx**, který:
-1. Servíruje statický build React aplikace s dlouhodobou cache pro assety,
-2. Reverzně proxuje všechny požadavky `/api/` a `/healthz` přímo do interního kontejneru `cjp-api:8080`.
+Soubor `compose.yaml` je připravený přímo pro **Coolify** (i libovolný jiný produkční Docker Compose orchestrátor):
+- Používá pojmenovaný Docker volume `cjp-data:/data`, takže databáze se při prvním nasazení sama stáhne a sestaví (healthcheck má `start_period: 300s`) a při všech dalších deployích už zůstává trvale uložená.
+- Lokální porty (`5173:80`, `8088:8080`) a bind-mount `./data:/data` jsou oddělené v `compose.override.yaml`, takže lokální `docker compose up` funguje dál beze změny a v Coolify nevznikají kolize portů při rolling updatech.
+- **V Coolify**: přidejte projekt jako *Docker Compose*, nechte `compose.yaml` a doménu (např. `https://slovnik.slks.cz` s cílovým portem `:80`) přiřaďte službě **`cjp-web`**. Službu `cjp-api` není potřeba vystavovat ven – `cjp-web` do ní interně proxuje `/api/` i `/healthz`.
 
-Pro vystavení na veřejnou doménu (např. `slovnik.example.cz`) stačí před `cjp-web` postavit libovolný TLS reverzní proxy (např. **Caddy**, **Traefik**, **Nginx** nebo **Cloudflare Tunnel**) směřující na port `cjp-web` (`5173`), zatímco port `cjp-api` vůbec nemusíte vystavovat do internetu.
-
-Příklad s **Caddy** (`Caddyfile`):
+Příklad s vlastním **Caddy** (`Caddyfile`) mimo Coolify:
 
 ```caddyfile
 slovnik.example.cz {

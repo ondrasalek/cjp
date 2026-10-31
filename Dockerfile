@@ -24,7 +24,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && mkdir -p /data
 VOLUME ["/data"]
 EXPOSE 8080
 
-HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=300s --retries=6 \
     CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

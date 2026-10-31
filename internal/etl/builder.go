@@ -255,7 +255,7 @@ func BuildDatabase(ctx context.Context, opts BuildOptions) error {
 	if err := store.CreateIndexes(ctx); err != nil {
 		return err
 	}
-	_, _ = store.DB().ExecContext(ctx, `PRAGMA journal_mode = DELETE; VACUUM;`)
+	_, _ = store.DB().ExecContext(ctx, `PRAGMA journal_mode = DELETE; PRAGMA optimize;`)
 	if err := store.Close(); err != nil {
 		return err
 	}
