@@ -104,39 +104,63 @@ func (l *ipRateLimiter) evictStaleLocked(now time.Time) {
 	}
 }
 
-func (l *ipRateLimiter) wrap(next http.Handler) http.Handler {
+// limit charges one request to the bucket `id`. It sets the rate-limit headers and, when the
+// bucket is empty, writes the 429 response and returns false. A nil limiter allows everything.
+func (l *ipRateLimiter) limit(w http.ResponseWriter, id string) bool {
 	if l == nil {
-		return next
+		return true
 	}
-	limitHeader := strconv.Itoa(int(l.burst))
+	ok, remaining, retryAfter := l.allow(id, time.Now())
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(l.burst)))
+	w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+	if !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{
+			"error":   "rate_limited",
+			"message": "Příliš mnoho požadavků – zkuste to prosím za okamžik.",
+		})
+	}
+	return ok
+}
 
+// rateLimited applies the per-IP limit to anonymous API calls and the higher per-key limit to
+// calls with a paid API key.
+func (s *Server) rateLimited(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Never throttle orchestrator health probes or non-API static assets
-		if r.URL.Path == "/healthz" || !strings.HasPrefix(r.URL.Path, "/api/") {
+		// Never throttle orchestrator health probes, non-API static assets or Stripe's webhook
+		// (it authenticates by signature).
+		if r.URL.Path == "/healthz" || !strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == webhookPath {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		ip := extractClientIP(r)
-		ok, remaining, retryAfter := l.allow(ip, time.Now())
-		w.Header().Set("X-RateLimit-Limit", limitHeader)
-		w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
-
-		if !ok {
-			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
-			writeJSON(w, http.StatusTooManyRequests, map[string]any{
-				"error":   "rate_limited",
-				"message": "Příliš mnoho požadavků – zkuste to prosím za okamžik.",
-			})
+		if key := bearerKey(r); key != "" && s.billing.enabled() {
+			if id, ok := s.billing.Keys.Lookup(r.Context(), key); ok {
+				if s.paidLimiter.limit(w, "key:"+id) {
+					next.ServeHTTP(w, r)
+				}
+				return
+			}
+			// A wrong or lapsed key still costs the caller's IP budget, so guessing keys is throttled.
+			if s.limiter.limit(w, extractClientIP(r)) {
+				writeJSON(w, http.StatusUnauthorized, map[string]any{
+					"error":   "invalid_api_key",
+					"message": "Neplatný nebo neaktivní API klíč. Bez hlavičky Authorization funguje bezplatné API.",
+				})
+			}
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		if s.limiter.limit(w, extractClientIP(r)) {
+			next.ServeHTTP(w, r)
+		}
 	})
 }
 
-// extractClientIP safely resolves the client IP, trusting proxy headers ONLY when
-// the immediate peer (RemoteAddr) is a loopback or private/internal proxy network.
+// extractClientIP resolves the visitor's IP. The bundled nginx (web/nginx.conf) is the single place
+// that decides who the visitor is (from Cloudflare's CF-Connecting-IP) and hands it over in
+// X-Real-IP, overwriting whatever the client sent. So X-Real-IP is trusted only when the immediate
+// peer is that internal proxy; every other forwarding header is client-controlled and ignored.
 func extractClientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
 	if err != nil {
@@ -145,23 +169,8 @@ func extractClientIP(r *http.Request) string {
 
 	if peerAddr, err := netip.ParseAddr(host); err == nil {
 		if peerAddr.IsLoopback() || peerAddr.IsPrivate() || peerAddr.IsLinkLocalUnicast() {
-			if cf := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cf != "" {
-				if ip, err := netip.ParseAddr(cf); err == nil {
-					return ip.String()
-				}
-			}
-			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				for _, part := range strings.Split(xff, ",") {
-					cand := strings.TrimSpace(part)
-					if ip, err := netip.ParseAddr(cand); err == nil {
-						return ip.String()
-					}
-				}
-			}
-			if xri := strings.TrimSpace(r.Header.Get("X-Real-IP")); xri != "" {
-				if ip, err := netip.ParseAddr(xri); err == nil {
-					return ip.String()
-				}
+			if ip, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Real-IP"))); err == nil {
+				return ip.String()
 			}
 		}
 		return peerAddr.String()

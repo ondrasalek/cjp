@@ -183,4 +183,12 @@ export interface MetaResponse {
     translations: number;
     sources: DataSourceInfo[];
   };
+  billing?: BillingInfo;
+}
+
+export interface BillingInfo {
+  enabled: boolean;
+  price_label: string;
+  free_rps: number;
+  paid_rps: number;
 }

@@ -15,6 +15,14 @@ services:
       CJP_USE_HUNSPELL: "${CJP_USE_HUNSPELL:-true}"
       CJP_RATE_LIMIT_RPS: "${CJP_RATE_LIMIT_RPS:-5}"
       CJP_RATE_LIMIT_BURST: "${CJP_RATE_LIMIT_BURST:-30}"
+      # Paid API keys (higher limits). Off unless the three STRIPE_* values and CJP_PUBLIC_URL are all set.
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET:-}"
+      STRIPE_PRICE_ID: "${STRIPE_PRICE_ID:-}"
+      CJP_PUBLIC_URL: "${CJP_PUBLIC_URL:-}"
+      CJP_PRICE_LABEL: "${CJP_PRICE_LABEL:-}"
+      CJP_PAID_RATE_LIMIT_RPS: "${CJP_PAID_RATE_LIMIT_RPS:-50}"
+      CJP_PAID_RATE_LIMIT_BURST: "${CJP_PAID_RATE_LIMIT_BURST:-200}"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
       interval: 5s

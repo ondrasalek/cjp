@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BookOpen, Code2, Sparkles, TextSearch } from "lucide-react";
-import type { DataSourceInfo, FormMatch, MetaResponse, WordCardResponse } from "./types";
+import type { BillingInfo, DataSourceInfo, FormMatch, MetaResponse, WordCardResponse } from "./types";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { SearchBar } from "./components/SearchBar";
 import { LexemeCard } from "./components/LexemeCard";
@@ -40,6 +40,7 @@ export function App() {
 
   const [statsText, setStatsText] = useState("Načítám databázi…");
   const [sources, setSources] = useState<DataSourceInfo[]>([]);
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
 
   useEffect(() => {
     fetch("/api/v1/meta")
@@ -51,6 +52,7 @@ export function App() {
           `${fmt.format(data.stats.lexemes)} hesel • ${fmt.format(data.stats.word_forms)} tvarů`
         );
         setSources(data.stats.sources ?? []);
+        setBilling(data.billing ?? null);
       })
       .catch(() => setStatsText("API offline"));
   }, []);
@@ -474,7 +476,7 @@ export function App() {
 
         {activeTab === "tools" && <AnalyzePanel onSelectWord={handleSelectWord} />}
         {activeTab === "fts" && <MeaningSearchPanel onSelectWord={handleSelectWord} />}
-        {activeTab === "api" && <ApiDocsPanel sources={sources} />}
+        {activeTab === "api" && <ApiDocsPanel sources={sources} billing={billing} />}
       </main>
 
       <footer className="mt-8 border-t border-slate-200 bg-white py-4 text-[0.8125rem] text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">

@@ -120,6 +120,46 @@ slovnik.example.cz {
 
 ---
 
+## Provoz za Cloudflare a limity požadavků
+
+Limity (nginx i Go API) se počítají na IP adresu návštěvníka. Tu určuje jen nginx z hlavičky `CF-Connecting-IP`, kterou
+Cloudflare vždy přepíše skutečnou adresou, a předává ji API v `X-Real-IP`. Ostatní hlavičky (`X-Forwarded-For` apod.) se ignorují.
+
+Aby to platilo, **musí server přijímat webový provoz jen z Cloudflare** (firewall na rozsahy Cloudflare, nebo Cloudflare Tunnel).
+Kdo se na server dostane napřímo, může si `CF-Connecting-IP` vymyslet a limity obejít. Pokud proxy v Cloudflare vypnete,
+změňte `real_ip_header` ve `web/nginx.conf`.
+
+## Placené API klíče (volitelné)
+
+Bezplatné API funguje dál bez registrace. Volitelně lze prodávat **vyšší limity**: zákazník zaplatí předplatné přes
+Stripe Checkout a na návratové stránce si vygeneruje klíč, který posílá v hlavičce `Authorization: Bearer cjp_…`.
+Nejsou potřeba žádné uživatelské účty; návratová stránka (s `session_id`) slouží i ke správě předplatného a k vydání nového klíče.
+
+Zapne se nastavením **všech** těchto proměnných (jinak je vypnuto a web nabídku nezobrazí):
+
+| Proměnná | Význam |
+| :--- | :--- |
+| `STRIPE_SECRET_KEY` | tajný klíč Stripe |
+| `STRIPE_PRICE_ID` | ID opakované ceny (`price_…`) |
+| `STRIPE_WEBHOOK_SECRET` | tajemství webhooku `https://<doména>/api/billing/webhook` (události `customer.subscription.updated` a `customer.subscription.deleted`) |
+| `CJP_PUBLIC_URL` | veřejná adresa webu, např. `https://cjp.example.com` |
+| `CJP_PRICE_LABEL` | text ceny na webu, např. `9 € měsíčně` (volitelné) |
+| `CJP_PAID_RATE_LIMIT_RPS` / `_BURST` | limit na klíč, výchozí 50 / 200 |
+| `CJP_KEYS_DB` | soubor s klíči, výchozí `keys.db` vedle `cjp.db` (ukládají se jen SHA-256 otisky) |
+
+Než začnete brát platby:
+
+- Projděte celý tok jednou v testovacím režimu Stripe: zaplatit, vygenerovat klíč, zavolat API s klíčem, zrušit předplatné
+  v portálu a ověřit, že klíč přestal platit. Volání Stripe jsou zatím otestována jen proti napodobenině serveru.
+- Zákazník, který ztratí odkaz na návratovou stránku, si sám předplatné nezruší ani klíč neobnoví. Řešení: dohledat jeho
+  platbu ve Stripe dashboardu a poslat mu odkaz `…/api/billing/key?session_id=cs_…`, nebo předplatné zrušit ručně tam.
+
+- Zálohujte `keys.db` (leží ve stejném svazku jako `cjp.db`; přestavba slovníku ho nemaže).
+- Ověřte licenční texty přímo u zdrojů v tabulce níže. Žádná z nich nemá podmínku „nekomerční“, ale odpovědi API zůstávají
+  pod `CC BY-SA` s atribucí, takže obchodní podmínky nesmějí zákazníkům zakazovat další šíření dat.
+- Doplňte na web provozovatele, obchodní podmínky a zásady ochrany soukromí (vyžaduje je Stripe i spotřebitelské právo) a vyřešte DPH.
+- Ve Stripe zapněte zákaznický portál.
+
 ## Otevřené zdroje dat a licence
 
 Zdrojový kód tohoto projektu (Go backend, ETL pipeline, React frontend) je licencován pod licencí **MIT** (viz [LICENSE](./LICENSE)).

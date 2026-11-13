@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
-import type { DataSourceInfo } from "../types";
+import type { BillingInfo, DataSourceInfo } from "../types";
 
 const ENDPOINTS = [
   {
@@ -35,7 +35,7 @@ const ENDPOINTS = [
   },
 ];
 
-export function ApiDocsPanel({ sources }: { sources: DataSourceInfo[] }) {
+export function ApiDocsPanel({ sources, billing }: { sources: DataSourceInfo[]; billing: BillingInfo | null }) {
   const [copiedRoute, setCopiedRoute] = useState<string | null>(null);
   const formatNum = (n: number) => new Intl.NumberFormat("cs-CZ").format(n);
 
@@ -117,6 +117,37 @@ export function ApiDocsPanel({ sources }: { sources: DataSourceInfo[] }) {
           })}
         </div>
       </div>
+
+      {billing?.enabled && (
+        <div className="lexeme-card-container rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-3">
+          <h2 className="text-[clamp(1.2rem,1rem+1.2vw,1.5rem)] font-bold text-slate-900 dark:text-slate-100 text-balance">
+            Vyšší limity pro produkční provoz
+          </h2>
+          <p className="max-w-[72ch] text-[0.9rem] sm:text-[0.9375rem] text-slate-600 dark:text-slate-400 text-pretty">
+            Bezplatné API zůstává bez registrace{billing.free_rps > 0 ? ` (${billing.free_rps} požadavků za sekundu na IP adresu)` : ""}.
+            S API klíčem získáte {billing.paid_rps} požadavků za sekundu na klíč bez ohledu na IP adresu
+            {billing.price_label ? ` za ${billing.price_label}` : ""}. Platíte za provoz služby: data zůstávají pod otevřenými
+            licencemi uvedenými níže a smíte je dál šířit za stejných podmínek.
+          </p>
+          <pre
+            tabIndex={0}
+            className="min-w-0 overflow-x-auto overscroll-x-contain rounded-lg bg-slate-200/70 px-3 py-2 text-[0.76rem] sm:text-[0.8rem] dark:bg-slate-900"
+          >
+            <code>{`curl -H "Authorization: Bearer cjp_…" "${window.location.origin}/api/v1/words/žena"`}</code>
+          </pre>
+          <form method="post" action="/api/billing/checkout">
+            <button
+              type="submit"
+              className="inline-flex min-h-10 items-center rounded-lg bg-blue-700 px-4 py-2 text-[0.9rem] font-semibold text-white transition hover:bg-blue-800 cursor-pointer"
+            >
+              Získat API klíč
+            </button>
+          </form>
+          <p className="text-[0.8rem] text-slate-500 dark:text-slate-400">
+            Platba probíhá přes Stripe. Předplatné zrušíte kdykoli ve správě předplatného.
+          </p>
+        </div>
+      )}
 
       <div className="lexeme-card-container rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
         <h2 className="text-[clamp(1.2rem,1rem+1.2vw,1.5rem)] font-bold text-slate-900 dark:text-slate-100 text-balance">

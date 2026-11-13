@@ -31,6 +31,8 @@ type Server struct {
 	webDir        string
 	mux           *http.ServeMux
 	limiter       *ipRateLimiter
+	paidLimiter   *ipRateLimiter // per API key
+	billing       BillingConfig
 	statsMu       sync.RWMutex
 	cachedStats   *db.Stats
 	sitemapLemmas []string
@@ -43,6 +45,7 @@ type Config struct {
 	Hunspell   *hunspell.Dictionary
 	WebDir     string
 	RateLimit  RateLimitConfig
+	Billing    BillingConfig
 }
 
 // NewServer creates and wires a new API Server.
@@ -54,8 +57,11 @@ func NewServer(cfg Config) *Server {
 		webDir:  cfg.WebDir,
 		mux:     http.NewServeMux(),
 		limiter: newIPRateLimiter(cfg.RateLimit),
+		paidLimiter: newIPRateLimiter(cfg.Billing.RateLimit),
+		billing:     cfg.Billing,
 	}
 	s.routes()
+	s.billingRoutes()
 	return s
 }
 
@@ -92,12 +98,12 @@ func (s *Server) routes() {
 
 // Handler returns the root http.Handler with CORS, rate limiting, and security headers.
 func (s *Server) Handler() http.Handler {
-	core := s.limiter.wrap(s.mux)
+	core := s.rateLimited(s.mux)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -136,6 +142,12 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 		"service":          "cjp-api",
 		"hunspell_enabled": s.hun != nil,
 		"stats":            stats,
+		"billing": map[string]any{
+			"enabled":     s.billing.enabled(),
+			"price_label": s.billing.PriceLabel,
+			"free_rps":    s.limiterRPS(s.limiter),
+			"paid_rps":    s.limiterRPS(s.paidLimiter),
+		},
 	})
 }
 
@@ -584,4 +596,11 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{
 		"error": msg,
 	})
+}
+
+func (s *Server) limiterRPS(l *ipRateLimiter) float64 {
+	if l == nil {
+		return 0
+	}
+	return l.rps
 }

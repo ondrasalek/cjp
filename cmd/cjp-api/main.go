@@ -10,10 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/ondrejsalek/cjp/internal/api"
+	"github.com/ondrejsalek/cjp/internal/billing"
 	"github.com/ondrejsalek/cjp/internal/db"
 	"github.com/ondrejsalek/cjp/internal/hunspell"
 	"github.com/ondrejsalek/cjp/internal/hyphen"
@@ -64,6 +67,11 @@ func main() {
 		}
 	}
 
+	billingCfg := loadBilling(filepath.Dir(*dbPath))
+	if billingCfg.Keys != nil {
+		defer billingCfg.Keys.Close()
+	}
+
 	srv := api.NewServer(api.Config{
 		Store:      store,
 		Hyphenator: hyph,
@@ -73,6 +81,7 @@ func main() {
 			RPS:   *rateLimitRPS,
 			Burst: *rateLimitBurst,
 		},
+		Billing: billingCfg,
 	})
 
 	httpSrv := &http.Server{
@@ -99,4 +108,44 @@ func main() {
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = httpSrv.Shutdown(shutCtx)
+}
+
+// loadBilling turns paid API keys on when the Stripe environment is complete. Secrets come from
+// the environment, never from flags (flags show up in `ps`).
+func loadBilling(dataDir string) api.BillingConfig {
+	env := func(name, def string) string {
+		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			return v
+		}
+		return def
+	}
+	secret, whsec, price, public := env("STRIPE_SECRET_KEY", ""), env("STRIPE_WEBHOOK_SECRET", ""), env("STRIPE_PRICE_ID", ""), env("CJP_PUBLIC_URL", "")
+	if secret == "" && whsec == "" && price == "" {
+		return api.BillingConfig{}
+	}
+	if secret == "" || whsec == "" || price == "" || public == "" {
+		log.Fatal("billing: set all of STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID and CJP_PUBLIC_URL, or none of them")
+	}
+	keys, err := billing.OpenKeys(env("CJP_KEYS_DB", filepath.Join(dataDir, "keys.db")))
+	if err != nil {
+		log.Fatalf("billing: open keys db: %v", err)
+	}
+	// A typo or 0 must not make paid keys unlimited, so anything unusable falls back to the default.
+	rps, err := strconv.ParseFloat(env("CJP_PAID_RATE_LIMIT_RPS", "50"), 64)
+	if err != nil || rps <= 0 {
+		rps = 50
+	}
+	burst, err := strconv.Atoi(env("CJP_PAID_RATE_LIMIT_BURST", "200"))
+	if err != nil || burst < 1 {
+		burst = 200
+	}
+	log.Printf("billing: paid API keys enabled (%.0f req/s per key)", rps)
+	return api.BillingConfig{
+		Keys:       keys,
+		Stripe:     &billing.Stripe{SecretKey: secret, WebhookSecret: whsec},
+		PriceID:    price,
+		PublicURL:  strings.TrimRight(public, "/"),
+		PriceLabel: env("CJP_PRICE_LABEL", ""),
+		RateLimit:  api.RateLimitConfig{RPS: rps, Burst: burst},
+	}
 }
