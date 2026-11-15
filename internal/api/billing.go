@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"html/template"
 	"io"
 	"log"
@@ -22,6 +24,8 @@ type BillingConfig struct {
 	PublicURL  string // e.g. https://cjp.example.com — return URLs are never built from the Host header
 	PriceLabel string // shown on the website, e.g. "9 € měsíčně"
 	RateLimit  RateLimitConfig
+	// AdminPassword opens /api/billing/admin (HTTP Basic, any user name). Empty = no admin page.
+	AdminPassword string
 }
 
 func (c BillingConfig) enabled() bool { return c.Keys != nil && c.Stripe != nil }
@@ -35,6 +39,57 @@ func (s *Server) billingRoutes() {
 	s.mux.HandleFunc("POST /api/billing/key", s.handleKeyIssue)
 	s.mux.HandleFunc("POST /api/billing/portal", s.handlePortal)
 	s.mux.HandleFunc("POST "+webhookPath, s.handleStripeWebhook)
+	if s.billing.AdminPassword != "" {
+		s.mux.HandleFunc("GET /api/billing/admin", s.handleAdmin)
+	}
+}
+
+var adminPage = template.Must(template.New("admin").Parse(`<!doctype html>
+<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Admin · CJP</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem;color:#0f172a}
+dl{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem}div{border:1px solid #e2e8f0;border-radius:.6rem;padding:.8rem}
+dt{color:#64748b;font-size:.875rem}dd{margin:0;font-size:1.75rem;font-weight:600}small{color:#64748b}</style></head><body>
+<h1>CJP · Admin</h1>
+<h2>Placené API klíče</h2>
+<dl>
+<div><dt>Klíčů celkem</dt><dd>{{.Stats.Total}}</dd></div>
+<div><dt>Aktivních (zaplacené předplatné)</dt><dd>{{.Stats.Active}}</dd></div>
+<div><dt>Vydáno nebo obnoveno za 7 dní</dt><dd>{{.Stats.Last7}}</dd></div>
+<div><dt>Vydáno nebo obnoveno za 30 dní</dt><dd>{{.Stats.Last30}}</dd></div>
+</dl>
+<p><small>Limit placeného klíče: {{.PaidRPS}} požadavků/s. Cena na webu: {{if .PriceLabel}}{{.PriceLabel}}{{else}}neuvedena{{end}}.</small></p>
+<h2>Kupóny</h2>
+<p>Slevové kódy (například první měsíc zdarma) se vytvářejí ve Stripe: Product catalog → Coupons → Promotion codes.
+Zákazník kód zadá v pokladně; pole pro kód je tam zapnuté.</p>
+<p>Platby, zákazníci a faktury jsou v <a href="https://dashboard.stripe.com/" rel="noreferrer">administraci Stripe</a>.</p>
+<p><a href="/">← Zpět na slovník</a></p>
+</body></html>`))
+
+// handleAdmin shows key statistics behind HTTP Basic auth. The per-IP rate limit in front of every
+// route is what makes guessing the password hopeless.
+func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
+	_, pass, _ := r.BasicAuth()
+	// Compared as hashes so neither the length nor the content leaks through timing.
+	got, want := sha256.Sum256([]byte(pass)), sha256.Sum256([]byte(s.billing.AdminPassword))
+	if subtle.ConstantTimeCompare(got[:], want[:]) != 1 {
+		w.Header().Set("WWW-Authenticate", `Basic realm="CJP admin", charset="UTF-8"`)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	stats, err := s.billing.Keys.Stats(r.Context())
+	if err != nil {
+		log.Printf("billing: admin stats: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = adminPage.Execute(w, struct {
+		Stats      billing.Stats
+		PaidRPS    float64
+		PriceLabel string
+	}{stats, s.billing.RateLimit.RPS, s.billing.PriceLabel})
 }
 
 // bearerKey returns the API key from "Authorization: Bearer cjp_…", or "".

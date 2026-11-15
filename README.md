@@ -145,6 +145,7 @@ Zapne se nastavením **všech** těchto proměnných (jinak je vypnuto a web nab
 | `CJP_PUBLIC_URL` | veřejná adresa webu, např. `https://cjp.example.com` |
 | `CJP_PRICE_LABEL` | text ceny na webu, např. `9 € měsíčně` (volitelné) |
 | `CJP_PAID_RATE_LIMIT_RPS` / `_BURST` | limit na klíč, výchozí 50 / 200 |
+| `CJP_ADMIN_PASSWORD` | heslo k `/api/billing/admin` (statistiky klíčů; HTTP Basic, libovolné jméno), aspoň 16 znaků; prázdné = stránka neexistuje (volitelné) |
 | `CJP_KEYS_DB` | soubor s klíči, výchozí `keys.db` vedle `cjp.db` (ukládají se jen SHA-256 otisky) |
 
 Než začnete brát platby:

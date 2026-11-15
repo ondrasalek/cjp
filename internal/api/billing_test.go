@@ -59,6 +59,7 @@ func newBillingServer(t *testing.T) (http.Handler, *billing.Keys, *url.Values) {
 		Billing: BillingConfig{
 			Keys: keys, Stripe: &billing.Stripe{SecretKey: "sk_test_x", WebhookSecret: "whsec_t", BaseURL: fake.URL},
 			PriceID: "price_1", PublicURL: "https://cjp.test", RateLimit: RateLimitConfig{RPS: 0.001, Burst: 5},
+			AdminPassword: testAdminPassword,
 		},
 	})
 	return srv.Handler(), keys, lastCheckout
@@ -79,6 +80,8 @@ func do(h http.Handler, method, target, ip, key string, form url.Values) *httpte
 	h.ServeHTTP(rec, req)
 	return rec
 }
+
+const testAdminPassword = "test-admin-password-1"
 
 var keyRe = regexp.MustCompile(`cjp_[A-Za-z0-9_-]{20,}`)
 
@@ -191,6 +194,37 @@ func TestPaidKeyFlow(t *testing.T) {
 	}
 	if rec = do(h, "GET", probe, "203.0.113.4", second, nil); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("key of a cancelled subscription: %d", rec.Code)
+	}
+}
+
+func TestAdminPageNeedsThePassword(t *testing.T) {
+	h, keys, _ := newBillingServer(t)
+	if _, err := keys.Issue(t.Context(), "sub_admin"); err != nil {
+		t.Fatal(err)
+	}
+	get := func(ip, pass string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/billing/admin", nil)
+		req.RemoteAddr = ip + ":1234"
+		if pass != "" {
+			req.SetBasicAuth("anyone", pass)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	for _, pass := range []string{"", "wrong", testAdminPassword + "x"} {
+		rec := get("203.0.113.9", pass)
+		if rec.Code != http.StatusUnauthorized || rec.Header().Get("WWW-Authenticate") == "" || strings.Contains(rec.Body.String(), "Klíčů celkem") {
+			t.Fatalf("password %q: status %d, body %q", pass, rec.Code, rec.Body.String())
+		}
+	}
+	// Guessing shares the per-IP limit of every other route: the fourth try from that address is refused unseen.
+	if rec := get("203.0.113.9", testAdminPassword); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("after three wrong guesses: status %d", rec.Code)
+	}
+	rec := get("203.0.113.10", testAdminPassword)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<dt>Klíčů celkem</dt><dd>1</dd>") {
+		t.Fatalf("admin page: status %d, body %q", rec.Code, rec.Body.String())
 	}
 }
 

@@ -139,13 +139,19 @@ func loadBilling(dataDir string) api.BillingConfig {
 	if err != nil || burst < 1 {
 		burst = 200
 	}
+	// The only thing between the internet and the admin page, so a guessable one is refused outright.
+	admin := env("CJP_ADMIN_PASSWORD", "")
+	if admin != "" && len(admin) < 16 {
+		log.Fatal("billing: CJP_ADMIN_PASSWORD must be at least 16 characters (or empty to turn the admin page off)")
+	}
 	log.Printf("billing: paid API keys enabled (%.0f req/s per key)", rps)
 	return api.BillingConfig{
-		Keys:       keys,
-		Stripe:     &billing.Stripe{SecretKey: secret, WebhookSecret: whsec},
-		PriceID:    price,
-		PublicURL:  strings.TrimRight(public, "/"),
-		PriceLabel: env("CJP_PRICE_LABEL", ""),
-		RateLimit:  api.RateLimitConfig{RPS: rps, Burst: burst},
+		Keys:          keys,
+		Stripe:        &billing.Stripe{SecretKey: secret, WebhookSecret: whsec},
+		PriceID:       price,
+		PublicURL:     strings.TrimRight(public, "/"),
+		PriceLabel:    env("CJP_PRICE_LABEL", ""),
+		AdminPassword: admin,
+		RateLimit:     api.RateLimitConfig{RPS: rps, Burst: burst},
 	}
 }

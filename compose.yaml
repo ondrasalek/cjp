@@ -21,6 +21,8 @@ services:
       STRIPE_PRICE_ID: "${STRIPE_PRICE_ID:-}"
       CJP_PUBLIC_URL: "${CJP_PUBLIC_URL:-}"
       CJP_PRICE_LABEL: "${CJP_PRICE_LABEL:-}"
+      # Opens /api/billing/admin (key statistics). At least 16 characters; empty = no admin page.
+      CJP_ADMIN_PASSWORD: "${CJP_ADMIN_PASSWORD:-}"
       CJP_PAID_RATE_LIMIT_RPS: "${CJP_PAID_RATE_LIMIT_RPS:-50}"
       CJP_PAID_RATE_LIMIT_BURST: "${CJP_PAID_RATE_LIMIT_BURST:-200}"
     healthcheck:

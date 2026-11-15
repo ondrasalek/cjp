@@ -72,6 +72,18 @@ func (k *Keys) SetActive(ctx context.Context, subscriptionID string, active bool
 	return err
 }
 
+// Stats is what the admin page shows about issued keys.
+type Stats struct{ Total, Active, Last7, Last30 int }
+
+// Stats counts keys. created_at moves when a key is rotated, so "last N days" means issued or rotated.
+func (k *Keys) Stats(ctx context.Context) (Stats, error) {
+	var s Stats
+	err := k.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(active), 0),
+		COALESCE(SUM(created_at >= datetime('now', '-7 days')), 0),
+		COALESCE(SUM(created_at >= datetime('now', '-30 days')), 0) FROM api_keys`).Scan(&s.Total, &s.Active, &s.Last7, &s.Last30)
+	return s, err
+}
+
 // Lookup returns a stable id for rate limiting and whether the key is valid and paid for.
 func (k *Keys) Lookup(ctx context.Context, key string) (id string, ok bool) {
 	h := hashKey(key)

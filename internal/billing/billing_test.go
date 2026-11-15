@@ -129,6 +129,13 @@ func TestKeys(t *testing.T) {
 		t.Fatal("unknown key must be invalid")
 	}
 	second, _ := keys.Issue(ctx, "sub_1") // rotation
+	if _, err := keys.Issue(ctx, "sub_2"); err != nil {
+		t.Fatal(err)
+	}
+	_ = keys.SetActive(ctx, "sub_2", false)
+	if s, err := keys.Stats(ctx); err != nil || s != (Stats{Total: 2, Active: 1, Last7: 2, Last30: 2}) {
+		t.Fatalf("Stats: %+v %v", s, err)
+	}
 	if _, ok := keys.Lookup(ctx, first); ok {
 		t.Fatal("rotated-out key must stop working")
 	}
