@@ -7,11 +7,15 @@ import { LexemeCard } from "./components/LexemeCard";
 import { AnalyzePanel } from "./components/AnalyzePanel";
 import { MeaningSearchPanel } from "./components/MeaningSearchPanel";
 import { ApiDocsPanel } from "./components/ApiDocsPanel";
+import { LegalPage } from "./components/LegalPage";
 import { SeoGuideSection } from "./components/SeoGuideSection";
 import { ApiQuickstartWidget, GitHubMark, GITHUB_REPO_URL, ProjectBadges } from "./components/HeroHighlights";
 import {
   applyDocumentSEO,
   DEVELOPERS_PATH,
+  LEGAL_PATHS,
+  LEGAL_TITLES,
+  type LegalPageKey,
   isPlainLeftClick,
   parseLocationRoute,
   wordHref,
@@ -34,6 +38,7 @@ export function App() {
   );
   const word = routeState.word;
   const isWordRoute = routeState.isWordRoute;
+  const legalPage = routeState.legalPage;
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en", "ru"]);
   const [cardData, setCardData] = useState<WordCardResponse | null>(null);
   const [loadingWord, setLoadingWord] = useState(false);
@@ -98,8 +103,9 @@ export function App() {
       isWordRoute,
       queryWord: word,
       cardData: cardData && cardData.query === word ? cardData : null,
+      legalPage,
     });
-  }, [activeTab, isWordRoute, word, cardData]);
+  }, [activeTab, isWordRoute, word, cardData, legalPage]);
 
   const handleSelectWord = (nextWord: string) => {
     const clean = nextWord.trim();
@@ -118,8 +124,20 @@ export function App() {
   };
 
   /** Switches tabs; the API tab owns its own crawlable URL (/vyvojari). */
+  const openLegal = (key: LegalPageKey) => {
+    setRouteState({ word: "žena", isWordRoute: false, legalPage: key });
+    setActiveTab("dictionary");
+    window.history.pushState({}, "", LEGAL_PATHS[key]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const selectTab = (key: TabKey) => {
     setActiveTab(key);
+    if (legalPage) {
+      setRouteState({ word: "žena", isWordRoute: false, isDevelopersRoute: key === "api" });
+      window.history.pushState({}, "", key === "api" ? DEVELOPERS_PATH : "/");
+      return;
+    }
     const onDevelopersUrl = window.location.pathname.replace(/\/+$/, "") === DEVELOPERS_PATH;
     if (key === "api" && !onDevelopersUrl) {
       window.history.pushState({}, "", DEVELOPERS_PATH);
@@ -366,7 +384,8 @@ export function App() {
 
       {/* Main Content */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-5">
-        {activeTab === "dictionary" && (
+        {legalPage && <LegalPage page={legalPage} />}
+        {!legalPage && activeTab === "dictionary" && (
           <>
             <section className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -474,9 +493,9 @@ export function App() {
           </>
         )}
 
-        {activeTab === "tools" && <AnalyzePanel onSelectWord={handleSelectWord} />}
-        {activeTab === "fts" && <MeaningSearchPanel onSelectWord={handleSelectWord} />}
-        {activeTab === "api" && <ApiDocsPanel sources={sources} billing={billing} />}
+        {!legalPage && activeTab === "tools" && <AnalyzePanel onSelectWord={handleSelectWord} />}
+        {!legalPage && activeTab === "fts" && <MeaningSearchPanel onSelectWord={handleSelectWord} />}
+        {!legalPage && activeTab === "api" && <ApiDocsPanel sources={sources} billing={billing} />}
       </main>
 
       <footer className="mt-8 border-t border-slate-200 bg-white py-4 text-[0.8125rem] text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
@@ -514,6 +533,34 @@ export function App() {
                 </svg>
                 github.com/ondrasalek
               </a>
+              <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                •
+              </span>
+              <a
+                href="mailto:podpora@slovotvar.cz"
+                className="font-medium text-blue-700 hover:underline dark:text-blue-400"
+              >
+                podpora@slovotvar.cz
+              </a>
+              {(["podminky", "soukromi"] as LegalPageKey[]).map((key) => (
+                <span key={key} className="contents">
+                  <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">
+                    •
+                  </span>
+                  <a
+                    href={LEGAL_PATHS[key]}
+                    onClick={(e) => {
+                      if (isPlainLeftClick(e)) {
+                        e.preventDefault();
+                        openLegal(key);
+                      }
+                    }}
+                    className="font-medium text-blue-700 hover:underline dark:text-blue-400"
+                  >
+                    {LEGAL_TITLES[key]}
+                  </a>
+                </span>
+              ))}
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-3">

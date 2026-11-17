@@ -133,6 +133,11 @@ func (s *Server) handleSitemapChunk(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString("  <url><loc>")
 		_ = xml.EscapeText(&buf, []byte(base+"/vyvojari"))
 		buf.WriteString("</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>\n")
+		for _, legal := range []string{"/podminky", "/soukromi"} {
+			buf.WriteString("  <url><loc>")
+			_ = xml.EscapeText(&buf, []byte(base+legal))
+			buf.WriteString("</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>\n")
+		}
 	}
 
 	for _, lemma := range chunk {

@@ -4,6 +4,18 @@ export const SITE_NAME = "Slovotvar.cz";
 
 export const DEVELOPERS_PATH = "/vyvojari";
 
+export type LegalPageKey = "podminky" | "soukromi";
+
+export const LEGAL_PATHS: Record<LegalPageKey, string> = {
+  podminky: "/podminky",
+  soukromi: "/soukromi",
+};
+
+export const LEGAL_TITLES: Record<LegalPageKey, string> = {
+  podminky: "Podmínky užívání",
+  soukromi: "Zásady ochrany soukromí",
+};
+
 export const HOME_TITLE = "Slovotvar.cz | Skloňování online & Bezplatné API bez reklam";
 
 export const HOME_DESCRIPTION =
@@ -21,10 +33,17 @@ export interface RouteState {
   word: string;
   isWordRoute: boolean;
   isDevelopersRoute?: boolean;
+  legalPage?: LegalPageKey;
 }
 
 export function parseLocationRoute(): RouteState {
   const path = window.location.pathname;
+  const trimmed = path.replace(/\/+$/, "");
+  for (const key of Object.keys(LEGAL_PATHS) as LegalPageKey[]) {
+    if (trimmed === LEGAL_PATHS[key]) {
+      return { word: "žena", isWordRoute: false, legalPage: key };
+    }
+  }
   if (path.replace(/\/+$/, "") === DEVELOPERS_PATH) {
     return { word: "žena", isWordRoute: false, isDevelopersRoute: true };
   }
@@ -134,9 +153,10 @@ export function applyDocumentSEO(params: {
   isWordRoute: boolean;
   queryWord: string;
   cardData: WordCardResponse | null;
+  legalPage?: LegalPageKey;
 }) {
   const origin = window.location.origin;
-  const { activeTab, isWordRoute, queryWord, cardData } = params;
+  const { activeTab, isWordRoute, queryWord, cardData, legalPage } = params;
 
   let title = HOME_TITLE;
   let description = HOME_DESCRIPTION;
@@ -173,7 +193,14 @@ export function applyDocumentSEO(params: {
     },
   ];
 
-  if (activeTab === "tools") {
+  if (legalPage) {
+    title = `${LEGAL_TITLES[legalPage]} | Slovotvar.cz`;
+    description =
+      legalPage === "podminky"
+        ? "Podmínky užívání služby Slovotvar.cz a jejího veřejného API."
+        : "Zásady ochrany soukromí služby Slovotvar.cz.";
+    canonicalUrl = `${origin}${LEGAL_PATHS[legalPage]}`;
+  } else if (activeTab === "tools") {
     title = "Morfologická analýza, tvar slova a dělení na slabiky | Slovotvar.cz";
     description =
       "Ověřte, zda české slovo nebo tvar slova existuje, zjistěte mluvnické kategorie (pád, číslo, rod, vid) a rozdělte libovolný český výraz na slabiky.";
